@@ -43,10 +43,11 @@
     :initarg :mouse-sensitivity)
    (zoom
     :type single-float
+    :reader zoom
     :initarg :zoom))
   (:default-initargs
    :position (vec3 0.0 0.0 0.0)
-   :up (vec3 0.0 1.0 0.0)
+   :world-up (vec3 0.0 1.0 0.0)
    :yaw +camera-yaw+
    :pitch +camera-pitch+
    :front (vec3 0.0 0.0 -1.0)
@@ -54,12 +55,12 @@
    :mouse-sensitivity +camera-sensitivity+
    :zoom +camera-zoom+))
 
-(defmethod initialize-instance ((cam camera) &key)
+(defmethod initialize-instance :after ((cam camera) &key)
   (update-camera-vectors cam))
 
 (defmethod get-view-matrix ((cam camera))
   (with-slots (position front up) cam
-    (kit.glm:look-at (kit.glm:vec+ pos front) up)))
+    (kit.glm:look-at position (kit.glm:vec+ position front) up)))
 
 (defmethod process-direction-movement ((cam camera) direction dt)
   (with-slots (movement-speed front right position) cam
@@ -101,7 +102,7 @@
   (with-slots (yaw pitch right up front world-up) cam
     (let* ((yaw (kit.glm:deg-to-rad yaw))
            (pitch (kit.glm:deg-to-rad pitch))
-           (new-front (vec4 (cfloat (* (cos yaw)
+           (new-front (vec3 (cfloat (* (cos yaw)
                                        (cos pitch)))
                             (cfloat (sin pitch))
                             (cfloat (* (sin yaw)
