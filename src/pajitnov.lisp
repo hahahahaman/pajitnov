@@ -7,6 +7,7 @@
 (defglobal *cube-drawer* nil)
 (defglobal *camera* nil)
 
+
 (defclass cube-drawer (drawer)
   ())
 
@@ -46,6 +47,100 @@
     (gl:draw-arrays draw-mode 0 36)
     (gl:bind-vertex-array 0)))
 
+(defglobal *blocks* (empty-seq))
+
+(defun valid-position (array position)
+  (let ((result t)
+        (max-pieces (first (array-dimensions array))))
+    (iter (for i from 0 below (length position))
+          (while result)
+          (setf result (and (< (elt position i) max-pieces)
+                            (>= (elt position i) 0)
+                            (zerop (apply #'aref array position)))))))
+
+(defun get-next-valid-positions  (array position)
+  (let ((dim (first (array-dimensions array))))
+    (iter (for i from 0 below dim)
+          (let* ((current (nth i position))
+                 (forward (1+ current))
+                 (backward (1- current )))
+            (when (valid-position array (set-nth i forward position))
+              (collect (cons i forward)))
+            (when (valid-position array (set-nth i backward position))
+              (collect (cons i backward)))))))
+
+(defun create-block (min-pieces max-pieces additional-piece-chance
+                                n-dimensions)
+  (let* ((array (make-array `(,max-pieces ,max-pieces)
+                            :element-type 'bit
+                            :initial-element 0))
+         (num-pieces 0)
+         (position (the list (iter (for i from 0 below n-dimensions)
+                                   (collect (random-in-range 0 (1- max-pieces))))))
+         (block-bounds (iter (for p in position)
+                             (collect (cons p p) result-type vector)))
+         (dims (iter (for i from 0 below n-dimensions)
+                     (collect 0)))
+         (center-position (iter (for i from 0 below n-dimensions)
+                                (collect 0)))
+         (block (empty-seq))
+         (next-valid-positions nil))
+    (iter (for i from 0 below min-pieces)
+          (incf num-pieces)
+          (setf (apply #'aref array position) 1
+
+                ;; collect all valid positions
+                next-valid-positions (get-next-valid-positions array position))
+
+          (if (not (zerop (length next-valid-positions)))
+              (let* ((new-position (nth (random-in-range
+                                         0
+                                         (1- (length next-valid-positions)))
+                                        next-valid-positions))
+                     (dim (car new-position))
+                     (new-value (cdr new-position)))
+                (cond ((< new-value (car (aref block-bounds dim)))
+                       (setf (car (aref block-bounds dim)) new-value))
+                      ((> new-value (cdr (aref block-bounds dim)))
+                       (setf (cdr (aref block-bounds dim)) new-value)))
+                (setf position (set-nth dim new-value position)))
+            (leave)))
+
+    ;; set any additional pieces
+    (iter (for chance = (random-in-range 0.0 1.0))
+          (while (and (<= chance additional-piece-chance)
+                      (< num-pieces max-pieces)))
+          (incf num-pieces)
+
+          (setf (apply #'aref array position) 1
+                next-valid-positions (get-next-valid-positions array position))
+
+          (if (not (zerop (length next-valid-positions)))
+              (let* ((new-position (nth (random-in-range
+                                         0
+                                         (1- (length next-valid-positions)))
+                                        next-valid-positions))
+                     (dim (car new-position))
+                     (new-value (cdr new-position)))
+                (cond ((< new-value (car (aref block-bounds dim)))
+                       (setf (car (aref block-bounds dim)) new-value))
+                      ((> new-value (cdr (aref block-bounds dim)))
+                       (setf (cdr (aref block-bounds dim)) new-value)))
+                (setf position (set-nth dim new-value position)))
+            (leave)))
+
+    ;; (setf w (1+ (- rightmost leftmost))
+    ;;       h (1+ (- topmost botmost))
+    ;;       center-row (+ botmost (truncate (/ (max w h) 2.0)))
+    ;;       center-col (+ leftmost (truncate (/ (max w h) 2.0))))
+    ;; (iter (for i from botmost to topmost)
+    ;;       (iter (for j from leftmost to rightmost)
+    ;;             (when (= (aref array i j) 1)
+    ;;               (with! block (cons (- j center-col)
+    ;;                                  (- i center-row))))))
+    block))
+
+
 (defun initialize ()
   (let ((text-program (make-program #p"./data/shaders/text.v.glsl"
                                     #p"./data/shaders/text.f.glsl"))
@@ -62,7 +157,7 @@
 
     (let ((lib (ft2:make-freetype)))
       (ft2:with-open-face (sans "./data/fonts/DejaVuSans.ttf" 0 lib)
-        (load-font "sans24" sans 24)))
+                          (load-font "sans24" sans 24)))
 
     (gl:use-program (id cube-program))
     (let ((view (get-view-matrix *camera*))
