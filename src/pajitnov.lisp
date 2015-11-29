@@ -110,9 +110,7 @@
     (load-program "cube" cube-program)
     (load-program "text" text-program)
 
-    (let ((lib (ft2:make-freetype)))
-      (ft2:with-open-face (sans "./data/fonts/DejaVuSans.ttf" 0 lib)
-        (load-font "sans24" sans 24)))
+    (load-font "sans24" "./data/fonts/DejaVuSans.ttf" 24)
 
     (gl:use-program (id cube-program))
     (let ((view (get-view-matrix *camera*))

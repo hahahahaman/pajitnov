@@ -8,7 +8,4 @@
   :serial t
   :components ((:module src
                 :components ((:file "package")
-                             (:file "vertices")
-                             (:file "camera")
                              (:file "pajitnov")))))
-

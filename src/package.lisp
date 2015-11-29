@@ -3,7 +3,6 @@
 (defpackage #:pajitnov
   (:use #:cl #:err #:iterate #:fset)
   (:import-from :kit.glm #:vec2 #:vec3 #:vec4)
-  ;; (:import-from :fset :lookup :@ :map)
   (:shadowing-import-from :iterate #:iter #:while)
   (:shadowing-import-from :fset
                           ;; Shadowed type/constructor names
