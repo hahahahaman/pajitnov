@@ -12,7 +12,7 @@
       (setf li (append li `(,i))))
     li))
 
-(defmacro with-nested-iter (range-list &body body)
+(defmacro nested-iter (range-list &body body)
   (let* ((init-l
            ;; fset:last takes the car of the lastcons
            (fset:last range-list))
@@ -23,16 +23,19 @@
                     (finally (return array))))
          (current `(iter (for ,(aref symbols 0) from
                               ,(first init-l) to ,(second init-l))
-                     (let ((values (make-array
-                                    ,range-list-length
-                                    :initial-contents
-                                    (reverse ,(get-symbol-values symbols)))))
+                     (let ((vals (make-array
+                                  ,range-list-length
+                                  :initial-contents
+                                  (reverse ,(get-symbol-values symbols)))))
                        ,@body))))
     (iter (for l in (cdr (reverse range-list)))
       (for i from 1 below range-list-length)
       (setf current `(iter (for ,(aref symbols i) from ,(first l) to ,(second l))
                        ,current)))
     current))
+
+(defmacro nested-iter* (range-list &body body)
+  `(nested-iter ,range-list ,@body))
 
 (defun valid-position (array position)
   "=> BOOLEAN
@@ -159,8 +162,6 @@ N-DIMENSIONS is the number of dimensions of the block."
         (while (and (<= chance additional-piece-chance)
                     (< num-pieces max-pieces)))
         (add-piece)))
-
-    (iter )
 
     ;; (setf w (1+ (- rightmost leftmost))
     ;;       h (1+ (- topmost botmost))
