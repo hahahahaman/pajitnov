@@ -35,7 +35,8 @@
     current))
 
 (defmacro nested-iter* (range-list &body body)
-  `(nested-iter ,range-list ,@body))
+  (let ((li (eval range-list)))
+    `(nested-iter ,li ,@body)))
 
 (defun valid-position (array position)
   "=> BOOLEAN
