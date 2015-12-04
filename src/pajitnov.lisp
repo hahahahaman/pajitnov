@@ -5,6 +5,7 @@
 ;;; "pajitnov" goes here. Hacks and glory await!
 
 (defglobal *blocks* (empty-seq))
+(defconstant *piece-radius* 5.0)
 
 (defun get-symbol-values (symbols)
   (let ((li `(list)))
@@ -17,16 +18,11 @@
            ;; fset:last takes the car of the lastcons
            (fset:last range-list))
          (range-list-length (length range-list))
-         (symbols (iter (iterate:with array = (make-array range-list-length))
-                    (for i from 0 below range-list-length)
-                    (setf (aref array i) (gensym))
-                    (finally (return array))))
+         (symbols (iter (for i from 0 below range-list-length)
+                    (collect (gensym) result-type vector)))
          (current `(iter (for ,(aref symbols 0) from
                               ,(first init-l) to ,(second init-l))
-                     (let ((vals (make-array
-                                  ,range-list-length
-                                  :initial-contents
-                                  (reverse ,(get-symbol-values symbols)))))
+                     (let ((vals (reverse ,(get-symbol-values symbols))))
                        ,@body))))
     (iter (for l in (cdr (reverse range-list)))
       (for i from 1 below range-list-length)
@@ -102,12 +98,16 @@ N-DIMENSIONS is the number of dimensions of the block."
                          (collect (cons p p) result-type vector)))
 
          ;; keeps track of the length of each dimension
-         (dims (iter (for i from 0 below n-dimensions)
-                 (collect 0)))
+         (dim-length nil
+                     ;; (iter (for i from 0 below n-dimensions)
+                     ;;   (collect 0))
+                     )
 
          ;; center of the block
-         (center-position (iter (for i from 0 below n-dimensions)
-                            (collect 0)))
+         (center-position nil
+                          ;; (iter (for i from 0 below n-dimensions)
+                          ;;   (collect 0))
+                          )
 
          ;; keeps track of the valid places from the current position
          ;; that can be added to the block
@@ -164,6 +164,23 @@ N-DIMENSIONS is the number of dimensions of the block."
                     (< num-pieces max-pieces)))
         (add-piece)))
 
+    ;; get length of each dimension
+    (setf dim-length (iter (for (low . high) in-vector block-bounds)
+                       (collect (- high low))))
+
+    (let ((max-length (apply #'max dim-length)))
+      ;; get the center of the block
+      (setf center-position (iter (for (low . high) in-vector block-bounds)
+                              (collect (+ low (truncate (/ max-length 2.0)))))))
+
+    (let ((range-list (iter (for (low . high) in-vector block-bounds)
+                        (collect (cons low high))))
+          (pieces (empty-seq)))
+      (nested-iter* range-list
+        (when (= (apply #'aref vals) 1)
+          (setf pieces (with-last pieces
+                         (mapcar (lambda (pos center) (- pos center))
+                                 vals center-position))))))
     ;; (setf w (1+ (- rightmost leftmost))
     ;;       h (1+ (- topmost botmost))
     ;;       center-row (+ botmost (truncate (/ (max w h) 2.0)))
