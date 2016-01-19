@@ -5,7 +5,7 @@
 ;;; "pajitnov" goes here. Hacks and glory await!
 
 (defglobal *blocks* (empty-seq))
-(defconstant *piece-radius* 5.0)
+(defconstant +piece-radius+ 5.0)
 
 (defun get-symbol-values (symbols)
   (let ((li `(list)))
@@ -13,30 +13,45 @@
       (setf li (append li `(,i))))
     li))
 
-(defmacro nested-iter (range-list &body body)
-  (let* ((init-l
-           ;; fset:last takes the car of the lastcons
-           (fset:last range-list))
-         (range-list-length (length range-list))
-         (symbols (iter (for i from 0 below range-list-length)
-                    (collect (gensym) result-type vector)))
-         (current `(iter (for ,(aref symbols 0) from
-                              ,(first init-l) to ,(second init-l))
-                     (let ((vals (reverse ,(get-symbol-values symbols))))
-                       ,@body))))
-    (iter (for l in (cdr (reverse range-list)))
-      (for i from 1 below range-list-length)
-      (setf current `(iter (for ,(aref symbols i) from ,(first l) to ,(second l))
-                       ,current)))
-    current))
+;; dreams die.
+;; (defmacro nested-iter (range-list &body body)
+;;   (let* ((init-l
+;;            ;; fset:last takes the car of the lastcons
+;;            ;; aka: the last element, since nil is the last cdr of the lastcons
+;;            (fset:last range-list))
+;;          (range-list-length (length range-list))
+;;          (symbols (iter (for i from 0 below range-list-length)
+;;                     (collect (gensym) result-type vector)))
+;;          (current `(iter (for ,(aref symbols 0) from
+;;                               ,(first init-l) to ,(second init-l))
+;;                      (let ((vals (make-array ,(length symbols)
+;;                                              :initial-contents
+;;                                              (reverse ,(get-symbol-values symbols)))))
+;;                        ,@body))))
+;;     (iter (for l in (cdr (reverse range-list)))
+;;       (for i from 1 below range-list-length)
+;;       (setf current `(iter (for ,(aref symbols i) from ,(first l) to ,(second l))
+;;                        ,current)))
+;;     current))
+(defmacro nested-loops (dimensions variables &body body)
+  (loop for range in (reverse dimensions)
+        for index in (reverse variables)
+        for x = body then (list y)
+        for y = `(loop for ,index from 0 to ,range do ,@x)
+        finally (return y)))
 
-(defmacro nested-iter* (range-list &body body)
-  (let ((li (eval range-list)))
-    `(nested-iter ,li ,@body)))
+(defun nested-map (fn dimensions)
+  (labels ((gn (args dimensions)
+             (if dimensions
+                 (loop for i from 0 to (car dimensions) do
+                   (gn (cons i args) (cdr dimensions)))
+                 (apply fn (reverse args)))))
+    (gn nil dimensions)))
 
 (defun valid-position (array position)
   "=> BOOLEAN
 Checks if POSITION is a valid point in ARRAY."
+  (assert (= (length position) (length (array-dimensions array))))
   (let ((result t)
         (max-pieces (first (array-dimensions array))))
     (iter (for p in position)
@@ -52,19 +67,22 @@ Checks if POSITION is a valid point in ARRAY."
   "=> LIST
 Iterates through the dimensions of POSITION, calling VALID-POSITION on each face
 of the n-dimension cube."
-  (iter (for p in position)
-    (for i from 0)
-    (for forward = (1+ p))
-    (for backward = (1- p))
-    ;; for dimensions >= 1 there are 2*n faces
-    ;; for each dimension there a back and front
-    ;; each valid position is represented by a cons cell where
-    ;; car is the dimension
-    ;; cdr is the value
-    (when (valid-position array (set-nth i forward position))
-      (collect (cons i forward)))
-    (when (valid-position array (set-nth i backward position))
-      (collect (cons i backward)))))
+  (let ((pos-len (length position)))
+    (iter (for p in position)
+      (for i from 0)
+      (for forward = (1+ p))
+      (for backward = (1- p))
+      ;; for dimensions >= 1 there are 2*n faces
+      ;; for each dimension there a back and front
+      ;; each valid position is represented by a cons cell where
+      ;; car is the dimension
+      ;; cdr is the value
+      (when (and (>= forward 0) (< forward pos-len))
+        (when (valid-position array (set-nth i forward position))
+          (collect (cons i forward))))
+      (when (and (>= backward 0) (< backward pos-len))
+        (when (valid-position array (set-nth i backward position))
+          (collect (cons i backward)))))))
 
 (defun create-block (min-pieces max-pieces additional-piece-chance n-dimensions)
   " => MAP (BLOCK)
@@ -79,7 +97,8 @@ N-DIMENSIONS is the number of dimensions of the block."
           "min-pieces must be <= max-pieces")
 
   (let* (;; a bitmask for currently used positions in the block
-         (array (make-array `(,max-pieces ,max-pieces)
+         (array (make-array (iter (for i from 0 below n-dimensions)
+                              (collect max-pieces))
                             :element-type 'bit
                             :initial-element 0))
 
@@ -176,11 +195,13 @@ N-DIMENSIONS is the number of dimensions of the block."
     (let ((range-list (iter (for (low . high) in-vector block-bounds)
                         (collect (cons low high))))
           (pieces (empty-seq)))
-      (nested-iter* range-list
-        (when (= (apply #'aref vals) 1)
-          (setf pieces (with-last pieces
-                         (mapcar (lambda (pos center) (- pos center))
-                                 vals center-position))))))
+      (nested-map
+       (lambda (&rest vals)
+         (when (= (apply #'aref vals) 1)
+           (setf pieces (with-last pieces
+                          (mapcar (lambda (pos center) (- pos center))
+                                  vals center-position)))))
+       range-list))
     ;; (setf w (1+ (- rightmost leftmost))
     ;;       h (1+ (- topmost botmost))
     ;;       center-row (+ botmost (truncate (/ (max w h) 2.0)))
