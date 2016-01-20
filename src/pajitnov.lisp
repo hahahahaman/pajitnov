@@ -33,6 +33,8 @@
 ;;       (setf current `(iter (for ,(aref symbols i) from ,(first l) to ,(second l))
 ;;                        ,current)))
 ;;     current))
+
+;; got these from stack overflow
 (defmacro nested-loops (dimensions variables &body body)
   (loop for range in (reverse dimensions)
         for index in (reverse variables)
@@ -43,8 +45,11 @@
 (defun nested-map (fn dimensions)
   (labels ((gn (args dimensions)
              (if dimensions
-                 (loop for i from 0 to (car dimensions) do
-                   (gn (cons i args) (cdr dimensions)))
+                 (if (consp (car dimensions))
+                     (loop for i from (caar dimensions) to (cdar dimensions) do
+                       (gn (cons i args) (cdr dimensions)))
+                     (loop for i from 0 to (car dimensions) do
+                       (gn (cons i args) (cdr dimensions))))
                  (apply fn (reverse args)))))
     (gn nil dimensions)))
 
@@ -84,7 +89,7 @@ of the n-dimension cube."
         (when (valid-position array (set-nth i backward position))
           (collect (cons i backward)))))))
 
-(defun create-block (min-pieces max-pieces additional-piece-chance n-dimensions)
+(defun make-block (min-pieces max-pieces additional-piece-chance n-dimensions)
   " => MAP (BLOCK)
 A block is a collection of pieces.
 MIN-PIECES is the minimum number of pieces expected in the block.
@@ -92,7 +97,8 @@ MAX-PIECES is the maximum number of pieces in the block.
 ADDITIONAL-PIECE-CHANCE is a value from 0.0 to 1.0 that acts as the chance
 that another piece will be added.
 N-DIMENSIONS is the number of dimensions of the block."
-  (assert (<= min-pieces max-pieces)
+  (assert (and (< 0 min-pieces)
+               (<= min-pieces max-pieces))
           nil
           "min-pieces must be <= max-pieces")
 
@@ -197,11 +203,15 @@ N-DIMENSIONS is the number of dimensions of the block."
           (pieces (empty-seq)))
       (nested-map
        (lambda (&rest vals)
-         (when (= (apply #'aref vals) 1)
+         (when (= (apply #'aref array vals) 1)
            (setf pieces (with-last pieces
                           (mapcar (lambda (pos center) (- pos center))
                                   vals center-position)))))
-       range-list))
+       range-list)
+      (setf block
+            (-> block
+                (with :pieces pieces)
+                (with :center center-position))))
     ;; (setf w (1+ (- rightmost leftmost))
     ;;       h (1+ (- topmost botmost))
     ;;       center-row (+ botmost (truncate (/ (max w h) 2.0)))
@@ -312,24 +322,20 @@ N-DIMENSIONS is the number of dimensions of the block."
                :rotation-center r-center))
   (text-draw (format nil "~4f" (average-fps))
              (get-font "sans24")
-             :position (vec2 0.0 0.0)
-             :scale (vec2 0.5 0.5)))
+             :position (vec3f 0.0 0.0 0.0)
+             :scale (vec2f 0.5 0.5)
+             :draw-center (vec3f -0.5 -0.5 0.0)))
 
 (defun update ()
   (let ((cube-program (get-program "cube"))
         (rect-program (get-program "rect"))
-        (view (get-view-matrix *camera*))
-        (proj (kit.math:perspective-matrix (kit.glm:deg-to-rad (zoom *camera*))
-                                           (cfloat (/ *width* *height*))
-                                           0.1 100.0)))
+        (view (get-view-matrix *camera*)))
     ;; update camera movement by setting uniforms for the shaders
     (gl:use-program (id cube-program))
     (gl:uniform-matrix-4fv (get-uniform cube-program "view") view nil)
-    (gl:uniform-matrix-4fv (get-uniform cube-program "projection") proj nil)
 
     (gl:use-program (id rect-program))
-    (gl:uniform-matrix-4fv (get-uniform rect-program "view") view nil)
-    (gl:uniform-matrix-4fv (get-uniform rect-program "projection") proj nil)))
+    (gl:uniform-matrix-4fv (get-uniform rect-program "view") view nil)))
 
 (defun cleanup ()
   t)
