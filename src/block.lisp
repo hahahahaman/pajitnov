@@ -48,10 +48,9 @@ N-DIMENSIONS is the number of dimensions of the block."
                (<= min-pieces max-pieces))
           nil
           "MAKE-BLOCK: 0 < min-pieces <= max-pieces")
-  (assert (and (<= 0 max-piece-chance)
-               (<= max-piece-chance 1.0))
+  (assert (and (<= 0 max-piece-chance 1.0))
           nil
-          "MAKE-BLOCK: ")
+          "MAKE-BLOCK: 0 <= max-piece-chance <= 1.0")
 
   (let* (;; a bitmask for currently used positions in the block
          (array (make-array (iter (for i from 0 below n-dimensions)
@@ -61,6 +60,12 @@ N-DIMENSIONS is the number of dimensions of the block."
 
          ;; counter for number of pieces
          (num-pieces 0)
+
+         ;; chance of an additional piece
+         ;; get the nth root (where n is the max number of additional pieces)
+         ;; of the chance of getting all pieces
+         (additional-piece-chance (expt max-piece-chance
+                                        (/ 1.0 (- max-pieces min-pieces))))
 
          ;; keeps track of current position is the array
          (position (iter (for i from 0 below n-dimensions)
@@ -135,10 +140,14 @@ N-DIMENSIONS is the number of dimensions of the block."
         (add-piece))
 
       ;; additional pieces
-      (iter (for chance = (random-in-range 0.0 1.0))
-        (while (and (<= chance additional-piece-chance)
-                    (< num-pieces max-pieces)))
-        (add-piece)))
+      (let ((chance (random-in-range 0.0 1.0)))
+        (print additional-piece-chance)
+        (print chance)
+        (iter (while (and (<= chance additional-piece-chance)
+                          (< num-pieces max-pieces)))
+          (add-piece)
+          (setf chance (random-in-range 0.0 1.0))
+          (print chance))))
 
     ;; get length of each dimension
     (setf dim-length (iter (for (low . high) in-vector block-bounds)
@@ -162,8 +171,7 @@ N-DIMENSIONS is the number of dimensions of the block."
       (setf block
             (-> block
                 (with :pieces pieces)
-                (with :center center-position)
-                (with :roatation 0))))
+                (with :center center-position))))
     ;; (setf w (1+ (- rightmost leftmost))
     ;;       h (1+ (- topmost botmost))
     ;;       center-row (+ botmost (truncate (/ (max w h) 2.0)))
