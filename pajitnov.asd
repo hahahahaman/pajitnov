@@ -8,4 +8,12 @@
   :serial t
   :components ((:module src
                 :components ((:file "package")
+                             (:file "globals")
+                             (:file "utils")
+                             (:file "block")
+                             ;; (:file "init")
+                             ;; (:file "input")
+                             ;; (:file "render")
+                             ;; (:file "update")
+                             ;; (:file "cleanup")
                              (:file "pajitnov")))))
