@@ -7,4 +7,7 @@
 ;; (defglobal *width* 1200)
 ;; (defglobal *height* 800)
 (defglobal *blocks* (empty-seq))
+(defglobal *grid* (empty-seq))
+(defglobal *grid-dim2d* (vec2i 10 20))
+
 (defconstant +piece-radius+ 5.0)

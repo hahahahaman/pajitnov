@@ -36,18 +36,22 @@ of the n-dimension cube."
         (when (valid-position array (set-nth i backward position))
           (collect (cons i backward)))))))
 
-(defun make-block (min-pieces max-pieces additional-piece-chance n-dimensions)
+(defun make-block (min-pieces max-pieces max-piece-chance n-dimensions)
   " => MAP (BLOCK)
 A block is a collection of pieces.
 MIN-PIECES is the minimum number of pieces expected in the block.
 MAX-PIECES is the maximum number of pieces in the block.
-ADDITIONAL-PIECE-CHANCE is a value from 0.0 to 1.0 that acts as the chance
-that another piece will be added.
+MAX-PIECE-CHANCE is a value from 0.0 to 1.0 that acts as the chance
+that all pieces will be added.
 N-DIMENSIONS is the number of dimensions of the block."
   (assert (and (< 0 min-pieces)
                (<= min-pieces max-pieces))
           nil
-          "min-pieces must be <= max-pieces")
+          "MAKE-BLOCK: 0 < min-pieces <= max-pieces")
+  (assert (and (<= 0 max-piece-chance)
+               (<= max-piece-chance 1.0))
+          nil
+          "MAKE-BLOCK: ")
 
   (let* (;; a bitmask for currently used positions in the block
          (array (make-array (iter (for i from 0 below n-dimensions)
@@ -158,7 +162,8 @@ N-DIMENSIONS is the number of dimensions of the block."
       (setf block
             (-> block
                 (with :pieces pieces)
-                (with :center center-position))))
+                (with :center center-position)
+                (with :roatation 0))))
     ;; (setf w (1+ (- rightmost leftmost))
     ;;       h (1+ (- topmost botmost))
     ;;       center-row (+ botmost (truncate (/ (max w h) 2.0)))

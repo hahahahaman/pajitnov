@@ -16,7 +16,7 @@
           *text-drawer* (make-instance 'text-drawer :program text-program)
           *rect-drawer* (make-instance 'rect-drawer :program rect-program)
           *cube-drawer* (make-instance 'cube-drawer :program cube-program)
-          *camera* (make-instance 'camera :position (vec3 0.0 0.0 20.0)
+          *camera* (make-instance 'camera :position (vec3 25.0 25.0 100.0)
                                           :movement-speed 10.0))
 
     (load-program "cube" cube-program)
@@ -28,7 +28,7 @@
     (let ((view (get-view-matrix *camera*))
           (proj (kit.math:perspective-matrix (kit.glm:deg-to-rad (zoom *camera*))
                                              (cfloat (/ *width* *height*))
-                                             0.1 100.0)))
+                                             0.1 10000.0)))
       ;; cube shader matrices
       (gl:use-program (id cube-program))
       (gl:uniform-matrix-4fv (get-uniform cube-program "view") view nil)
@@ -76,8 +76,33 @@
     (add-event :code (process-scroll-movement *camera* (cfloat *scroll-y*)))))
 
 
-(defun render-blocks ()
+(defun render-block ()
   ())
+(defun render-grid2d ()
+  (let ((rows (aref *grid-dim2d* 0))
+        (cols (aref *grid-dim2d* 1))
+        (color (vec4f 0.5 0.5 0.5 0.5))
+        (secondary-dim (/ +piece-radius+ 10.0)))
+
+    ;; row
+    (iter (for row from 0 to rows)
+      (rect-draw :position (vec3f 0.0
+                                  (cfloat (* row +piece-radius+))
+                                  0.0)
+                 :size (vec2f (+ (* +piece-radius+ cols) secondary-dim)
+                              secondary-dim)
+                 :color color
+                 :draw-center (vec3f -0.5 0.5 0.0)))
+
+    ;; col
+    (iter (for col from 0 to cols)
+      (rect-draw :position (vec3f (cfloat (* col +piece-radius+))
+                                  0.0
+                                  0.0)
+                 :size (vec2f secondary-dim
+                              (* +piece-radius+ rows))
+                 :color color
+                 :draw-center (vec3f -0.5 -0.5 0.0)))))
 
 (let ((render-timer (make-timer :end (/ 1.0 60.0))))
   (defun render ()
@@ -88,39 +113,50 @@
       (gl:blend-func :src-alpha :one-minus-src-alpha)
       (gl:clear-color 0.0 0.0 0.0 1.0)
       (gl:clear :color-buffer-bit :depth-buffer-bit)
-      (cube-draw :draw-mode :triangles)
-      (let ((pos (vec3 5.0 5.0 0.0))
-            (size (vec2 1.0 1.0))
-            (rotate (glfw:get-time))
-            (d-center (vec3 0.0 0.0 0.0))
-            (r-center (vec3 -0.5 0.5 0.0)))
-        (rect-draw :position pos
-                   :size size
-                   :color (vec4 1.0 0.0 0.0 1.0)
-                   :rotate rotate
-                   :draw-mode :line-strip
-                   :draw-center d-center
-                   :rotation-center r-center)
-        (rect-draw :position pos
-                   :size size
-                   :color (vec4 0.0 1.0 1.0 1.0)
-                   :rotate 0.0
-                   :draw-mode :points
-                   :draw-center d-center
-                   :rotation-center r-center))
+      ;; (cube-draw :draw-mode :triangles)
+      ;; (let ((pos (vec3 5.0 5.0 0.0))
+      ;;       (size (vec2 1.0 1.0))
+      ;;       (rotate (glfw:get-time))
+      ;;       (d-center (vec3 0.0 0.0 0.0))
+      ;;       (r-center (vec3 -0.5 0.5 0.0)))
+      ;;   (rect-draw :position pos
+      ;;              :size size
+      ;;              :color (vec4 1.0 0.0 0.0 1.0)
+      ;;              :rotate rotate
+      ;;              :draw-mode :line-strip
+      ;;              :draw-center d-center
+      ;;              :rotation-center r-center)
+      ;;   (rect-draw :position pos
+      ;;              :size size
+      ;;              :color (vec4 0.0 1.0 1.0 1.0)
+      ;;              :rotate 0.0
+      ;;              :draw-mode :points
+      ;;              :draw-center d-center
+      ;;              :rotation-center r-center))
+
+      (render-grid2d)
+
+      ;; fps
       (let ((text (format nil "~4f" (average-fps)))
             (font (get-font "sans50"))
             (scale (vec2f 0.3 0.3)))
         (text-draw text
                    font
-                   :position (vec3f (cfloat *width*) (cfloat *height*) 0.0)
+                   :position (vec3f (cfloat *width*) 0.0 0.0)
                    :scale scale
-                   :draw-center (vec3f 0.5 0.5 0.0))))))
+                   :draw-center (vec3f 0.5 -0.5 0.0))))))
 
 (let ((update-timer (make-timer :end (/ 1.0 100.0))))
   (defun update ()
+    (timer-update update-timer)
     (iter (while (timer-ended-p update-timer))
       (timer-keep-overflow update-timer)
+
+      (with-slots (yaw pitch position) *camera*
+        (setf yaw -90.0
+              pitch 0.0
+              position (vec3f 50.0 11.0 96.0))
+        (update-camera-vectors *camera*))
       (let ((cube-program (get-program "cube"))
             (rect-program (get-program "rect"))
             (view (get-view-matrix *camera*))
