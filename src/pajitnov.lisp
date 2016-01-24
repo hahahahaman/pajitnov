@@ -16,7 +16,9 @@
           *text-drawer* (make-instance 'text-drawer :program text-program)
           *rect-drawer* (make-instance 'rect-drawer :program rect-program)
           *cube-drawer* (make-instance 'cube-drawer :program cube-program)
-          *camera* (make-instance 'camera :position (vec3 25.0 25.0 100.0)
+          *camera* (make-instance 'camera :position (vec3f 90.0 50.0 220.0)
+                                          :yaw -90.0
+                                          :pitch 0.0
                                           :movement-speed 10.0))
 
     (load-program "cube" cube-program)
@@ -75,32 +77,35 @@
   (when *scroll-callback-p*
     (add-event :code (process-scroll-movement *camera* (cfloat *scroll-y*)))))
 
+(defun render-piece (piece))
 
 (defun render-block ()
   ())
+
 (defun render-grid2d ()
   (let ((rows (aref *grid-dim2d* 0))
         (cols (aref *grid-dim2d* 1))
         (color (vec4f 0.5 0.5 0.5 0.5))
-        (secondary-dim (/ +piece-radius+ 10.0)))
+        (secondary-dim (/ +piece-radius+ 10.0))
+        (piece-diameter (* +piece-radius+ 2.0)))
 
     ;; row
     (iter (for row from 0 to rows)
       (rect-draw :position (vec3f 0.0
-                                  (cfloat (* row +piece-radius+))
+                                  (cfloat (* row piece-diameter))
                                   0.0)
-                 :size (vec2f (+ (* +piece-radius+ cols) secondary-dim)
+                 :size (vec2f (+ (* piece-diameter cols) secondary-dim)
                               secondary-dim)
                  :color color
                  :draw-center (vec3f -0.5 0.5 0.0)))
 
     ;; col
     (iter (for col from 0 to cols)
-      (rect-draw :position (vec3f (cfloat (* col +piece-radius+))
+      (rect-draw :position (vec3f (cfloat (* col piece-diameter))
                                   0.0
                                   0.0)
                  :size (vec2f secondary-dim
-                              (* +piece-radius+ rows))
+                              (* piece-diameter rows))
                  :color color
                  :draw-center (vec3f -0.5 -0.5 0.0)))))
 
@@ -152,11 +157,11 @@
     (iter (while (timer-ended-p update-timer))
       (timer-keep-overflow update-timer)
 
-      (with-slots (yaw pitch position) *camera*
-        (setf yaw -90.0
-              pitch 0.0
-              position (vec3f 50.0 11.0 96.0))
-        (update-camera-vectors *camera*))
+      ;; (with-slots (yaw pitch position) *camera*
+      ;;   (setf yaw -90.0
+      ;;         pitch 0.0
+      ;;         position (vec3f 100.0 50.0 200.0))
+      ;;   (update-camera-vectors *camera*))
       (let ((cube-program (get-program "cube"))
             (rect-program (get-program "rect"))
             (view (get-view-matrix *camera*))
