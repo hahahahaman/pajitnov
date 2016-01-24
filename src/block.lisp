@@ -1,11 +1,10 @@
 (in-package :pajitnov)
 
-(defun valid-position (array position)
+(defun valid-position (array position max-pieces)
   "=> BOOLEAN
 Checks if POSITION is a valid point in ARRAY."
   (assert (= (length position) (length (array-dimensions array))))
-  (let ((result t)
-        (max-pieces (first (array-dimensions array))))
+  (let ((result t))
     (iter (for p in position)
       (while result)
       ;; point is valid if it is within the array bounds, 0 <= p < max-pieces
@@ -15,7 +14,7 @@ Checks if POSITION is a valid point in ARRAY."
                         (zerop (apply #'aref array position)))))
     result))
 
-(defun get-next-valid-positions (array position)
+(defun get-next-valid-positions (array position max-pieces)
   "=> LIST
 Iterates through the dimensions of POSITION, calling VALID-POSITION on each face
 of the n-dimension cube."
@@ -29,20 +28,22 @@ of the n-dimension cube."
       ;; each valid position is represented by a cons cell where
       ;; car is the dimension
       ;; cdr is the value
-      (when (and (>= forward 0) (< forward pos-len))
-        (when (valid-position array (set-nth i forward position))
+      (when (and (>= forward 0) (< forward pos-len)
+                 (< forward max-pieces))
+        (when (valid-position array (set-nth i forward position) max-pieces)
           (collect (cons i forward))))
-      (when (and (>= backward 0) (< backward pos-len))
-        (when (valid-position array (set-nth i backward position))
+      (when (and (>= backward 0) (< backward pos-len)
+                 (< backward max-pieces))
+        (when (valid-position array (set-nth i backward position) max-pieces)
           (collect (cons i backward)))))))
 
 (defun make-block (min-pieces max-pieces max-piece-chance n-dimensions)
   " => MAP (BLOCK)
 A block is a collection of pieces.
-MIN-PIECES is the minimum number of pieces expected in the block.
-MAX-PIECES is the maximum number of pieces in the block.
+MIN-PIECES is the minimum number of pieces in the block.
+MAX-PIECES is the maximum number of pieces expected  in the block.
 MAX-PIECE-CHANCE is a value from 0.0 to 1.0 that acts as the chance
-that all pieces will be added.
+that the number of pieces in the block will be MAX-PIECES.
 N-DIMENSIONS is the number of dimensions of the block."
   (assert (and (< 0 min-pieces)
                (<= min-pieces max-pieces))
@@ -79,16 +80,10 @@ N-DIMENSIONS is the number of dimensions of the block."
                          (collect (cons p p) result-type vector)))
 
          ;; keeps track of the length of each dimension
-         (dim-length nil
-                     ;; (iter (for i from 0 below n-dimensions)
-                     ;;   (collect 0))
-                     )
+         (dim-length nil)
 
          ;; center of the block
-         (center-position nil
-                          ;; (iter (for i from 0 below n-dimensions)
-                          ;;   (collect 0))
-                          )
+         (center-position nil)
 
          ;; keeps track of the valid places from the current position
          ;; that can be added to the block
@@ -106,34 +101,39 @@ N-DIMENSIONS is the number of dimensions of the block."
              (setf (apply #'aref array position) 1)
 
              ;; collect all valid positions adjacent to current position
-             (setf next-valid-positions (get-next-valid-positions array position))
+             (setf next-valid-positions (get-next-valid-positions array
+                                                                  position
+                                                                  max-pieces))
 
              ;; if no valid positions, go through previous positions
              ;; looking for a valid place
              (iter (while (zerop (length next-valid-positions)))
                (for pos in positions)
-               (setf next-valid-positions (get-next-valid-positions array pos)))
+               (setf next-valid-positions (get-next-valid-positions array
+                                                                    pos
+                                                                    max-pieces)))
 
              ;; get the new position from the list of valid positions
-             (let* ((new-position (nth (random-in-range
-                                        0
-                                        (1- (length next-valid-positions)))
-                                       next-valid-positions))
-                    ;; get dimension of the new position and its value
-                    (dim (car new-position))
-                    (new-value (cdr new-position)))
+             (when (> (length next-valid-positions) 0)
+               (let* ((new-position (nth (random-in-range
+                                          0
+                                          (1- (length next-valid-positions)))
+                                         next-valid-positions))
+                      ;; get dimension of the new position and its value
+                      (dim (car new-position))
+                      (new-value (cdr new-position)))
 
-               ;; check if bounds of the block have expanded
-               (cond ((< new-value (car (aref block-bounds dim)))
-                      ;; new low
-                      (setf (car (aref block-bounds dim)) new-value))
-                     ((> new-value (cdr (aref block-bounds dim)))
-                      ;; new high
-                      (setf (cdr (aref block-bounds dim)) new-value)))
+                 ;; check if bounds of the block have expanded
+                 (cond ((< new-value (car (aref block-bounds dim)))
+                        ;; new low
+                        (setf (car (aref block-bounds dim)) new-value))
+                       ((> new-value (cdr (aref block-bounds dim)))
+                        ;; new high
+                        (setf (cdr (aref block-bounds dim)) new-value)))
 
-               ;; set new position
-               (setf position (set-nth dim new-value position)
-                     positions (cons position positions)))))
+                 ;; set new position
+                 (setf position (set-nth dim new-value position)
+                       positions (cons position positions))))))
 
       ;; add minimum number of pieces
       (iter (for i from 0 below min-pieces)
@@ -141,13 +141,14 @@ N-DIMENSIONS is the number of dimensions of the block."
 
       ;; additional pieces
       (let ((chance (random-in-range 0.0 1.0)))
-        (print additional-piece-chance)
-        (print chance)
+        ;; (print additional-piece-chance)
+        ;; (print chance)
         (iter (while (and (<= chance additional-piece-chance)
                           (< num-pieces max-pieces)))
           (add-piece)
           (setf chance (random-in-range 0.0 1.0))
-          (print chance))))
+          ;; (print chance)
+          )))
 
     ;; get length of each dimension
     (setf dim-length (iter (for (low . high) in-vector block-bounds)
@@ -165,20 +166,43 @@ N-DIMENSIONS is the number of dimensions of the block."
        (lambda (&rest vals)
          (when (= (apply #'aref array vals) 1)
            (setf pieces (with-last pieces
-                          (mapcar (lambda (pos center) (- pos center))
-                                  vals center-position)))))
+                          ;; relative position to the center of the block
+                          (fset:map (:center (gmap:gmap
+                                              :seq
+                                              (lambda (pos center)
+                                                (* (- pos center) +piece-radius+ 2.0))
+                                              (:list vals) (:list center-position)))
+                                    (:color (vec4f 1.0 1.0 1.0 1.0)))))))
        range-list)
       (setf block
             (-> block
+                (with :size (convert 'seq (mapcar #'1+ dim-length)))
                 (with :pieces pieces)
-                (with :center center-position))))
-    ;; (setf w (1+ (- rightmost leftmost))
-    ;;       h (1+ (- topmost botmost))
-    ;;       center-row (+ botmost (truncate (/ (max w h) 2.0)))
-    ;;       center-col (+ leftmost (truncate (/ (max w h) 2.0))))
-    ;; (iter (for i from botmost to topmost)
-    ;;       (iter (for j from leftmost to rightmost)
-    ;;             (when (= (aref array i j) 1)
-    ;;               (with! block (cons (- j center-col)
-    ;;                                  (- i center-row))))))
+                (with :center (convert 'seq (iter (for i from 0 below n-dimensions)
+                                              (collect 0.0)))))))
     block))
+
+(defun move-position (position dist-vec)
+  "=> NEW-POSITION (SEQ)
+Position is just fset:seq with numbers. Using fset:seq for positions
+just because they are n dimensional and are immutable."
+  (iter (for d in-vector dist-vec) (for i from 0)
+    (with! position i (+ (@ position i) d)))
+  position)
+
+(defun move-pieces (pieces dist-vec)
+  (let ((new-pieces (empty-seq)))
+    (do-seq (piece pieces)
+      (let ((pcenter (@ piece :center))
+            (pcolor (@ piece :color)))
+        (setf pcenter (move-position pcenter dist-vec)
+              new-pieces (with-last new-pieces
+                           (-> piece
+                               (with :center pcenter)
+                               (with :color pcolor))))))
+    new-pieces))
+
+(defun move-block (block dist-vec)
+  (-> block
+      (with :center (move-position (@ block :center) dist-vec))
+      (with :pieces (move-pieces (@ block :pieces) dist-vec))))
