@@ -18,24 +18,23 @@ Checks if POSITION is a valid point in ARRAY."
   "=> LIST
 Iterates through the dimensions of POSITION, calling VALID-POSITION on each face
 of the n-dimension cube."
-  (let ((pos-len (length position)))
-    (iter (for p in position)
-      (for i from 0)
-      (for forward = (1+ p))
-      (for backward = (1- p))
-      ;; for dimensions >= 1 there are 2*n faces
-      ;; for each dimension there a back and front
-      ;; each valid position is represented by a cons cell where
-      ;; car is the dimension
-      ;; cdr is the value
-      (when (and (>= forward 0) (< forward pos-len)
-                 (< forward max-pieces))
-        (when (valid-position array (set-nth i forward position) max-pieces)
-          (collect (cons i forward))))
-      (when (and (>= backward 0) (< backward pos-len)
-                 (< backward max-pieces))
-        (when (valid-position array (set-nth i backward position) max-pieces)
-          (collect (cons i backward)))))))
+  (iter (for p in position)
+    (for i from 0)
+    (for forward = (1+ p))
+    (for backward = (1- p))
+    ;; for dimensions >= 1 there are 2*n faces
+    ;; for each dimension there a back and front
+    ;; each valid position is represented by a cons cell where
+    ;; car is the dimension
+    ;; cdr is the value
+    (when (and (>= forward 0) (< forward max-pieces)
+               (< forward max-pieces))
+      (when (valid-position array (set-nth i forward position) max-pieces)
+        (collect (cons i forward))))
+    (when (and (>= backward 0) (< backward max-pieces)
+               (< backward max-pieces))
+      (when (valid-position array (set-nth i backward position) max-pieces)
+        (collect (cons i backward))))))
 
 (defun make-block (min-pieces max-pieces max-piece-chance n-dimensions)
   " => MAP (BLOCK)
@@ -107,14 +106,16 @@ N-DIMENSIONS is the number of dimensions of the block."
 
              ;; if no valid positions, go through previous positions
              ;; looking for a valid place
-             (iter (while (zerop (length next-valid-positions)))
-               (for pos in positions)
+             (iter (for pos in positions)
+               (while (zerop (length next-valid-positions)))
                (setf next-valid-positions (get-next-valid-positions array
                                                                     pos
                                                                     max-pieces)))
 
              ;; get the new position from the list of valid positions
-             (when (> (length next-valid-positions) 0)
+             (when (and (> (length next-valid-positions) 0)
+                        (< num-pieces max-pieces)
+                        (> max-piece-chance 0.0))
                (let* ((new-position (nth (random-in-range
                                           0
                                           (1- (length next-valid-positions)))
@@ -136,7 +137,7 @@ N-DIMENSIONS is the number of dimensions of the block."
                        positions (cons position positions))))))
 
       ;; add minimum number of pieces
-      (iter (for i from 0 below min-pieces)
+      (iter (while (< num-pieces min-pieces))
         (add-piece))
 
       ;; additional pieces
@@ -172,7 +173,10 @@ N-DIMENSIONS is the number of dimensions of the block."
                                               (lambda (pos center)
                                                 (* (- pos center) +piece-radius+ 2.0))
                                               (:list vals) (:list center-position)))
-                                    (:color (vec4f 1.0 1.0 1.0 1.0)))))))
+                                    (:color (vec4f (random-in-range 0.0 1.0)
+                                                   (random-in-range 0.0 1.0)
+                                                   (random-in-range 0.0 1.0)
+                                                   1.0)))))))
        range-list)
       (setf block
             (-> block
@@ -206,3 +210,7 @@ just because they are n dimensional and are immutable."
   (-> block
       (with :center (move-position (@ block :center) dist-vec))
       (with :pieces (move-pieces (@ block :pieces) dist-vec))))
+
+(defun move-block-to-start2d (block)
+  (move-block block (vec2f (cfloat (* (truncate (/ (aref *grid-dim2d* 0) 2.0))))
+                           (cfloat (* (truncate (/ (aref *grid-dim2d* 1) 2.0)))))))

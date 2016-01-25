@@ -27,6 +27,10 @@
 
     (load-font "sans50" "./data/fonts/DejaVuSans.ttf" 50)
 
+    (setf *current-block* (move-block-to-start2d
+                           (make-block 4 6 0.3 2)))
+    (print *current-block*)
+
     (let ((view (get-view-matrix *camera*))
           (proj (kit.math:perspective-matrix (kit.glm:deg-to-rad (zoom *camera*))
                                              (cfloat (/ *width* *height*))
@@ -77,16 +81,27 @@
   (when *scroll-callback-p*
     (add-event :code (process-scroll-movement *camera* (cfloat *scroll-y*)))))
 
-(defun render-piece (piece))
+(defun render-piece2d (piece)
+  (let ((diameter (* 2.0 +piece-radius+))
+        (center (@ piece :center)))
+    (cube-draw :position (vec3f (@ center 0) (@ center 1) 0.0)
+               :color (@ piece :color)
+               :size (vec3f diameter diameter diameter))))
 
-(defun render-block ()
-  ())
+(defun render-piece (piece)
+  (cond ((= (size (@ piece :center)) 2)
+         (render-piece2d piece))))
+
+(defun render-block (block)
+  (let ((pieces (@ block :pieces)))
+    (do-seq (piece pieces)
+      (render-piece piece))))
 
 (defun render-grid2d ()
   (let ((rows (aref *grid-dim2d* 0))
         (cols (aref *grid-dim2d* 1))
         (color (vec4f 0.5 0.5 0.5 0.5))
-        (secondary-dim (/ +piece-radius+ 10.0))
+        (secondary-dim (/ +piece-radius+ 5.0))
         (piece-diameter (* +piece-radius+ 2.0)))
 
     ;; row
@@ -94,10 +109,10 @@
       (rect-draw :position (vec3f 0.0
                                   (cfloat (* row piece-diameter))
                                   0.0)
-                 :size (vec2f (+ (* piece-diameter cols) secondary-dim)
+                 :size (vec2f (* piece-diameter cols)
                               secondary-dim)
                  :color color
-                 :draw-center (vec3f -0.5 0.5 0.0)))
+                 :draw-center (vec3f -0.5 0.0 0.0)))
 
     ;; col
     (iter (for col from 0 to cols)
@@ -107,7 +122,7 @@
                  :size (vec2f secondary-dim
                               (* piece-diameter rows))
                  :color color
-                 :draw-center (vec3f -0.5 -0.5 0.0)))))
+                 :draw-center (vec3f 0.0 -0.5 0.0)))))
 
 (let ((render-timer (make-timer :end (/ 1.0 60.0))))
   (defun render ()
@@ -118,6 +133,7 @@
       (gl:blend-func :src-alpha :one-minus-src-alpha)
       (gl:clear-color 0.0 0.0 0.0 1.0)
       (gl:clear :color-buffer-bit :depth-buffer-bit)
+
       ;; (cube-draw :draw-mode :triangles)
       ;; (let ((pos (vec3 5.0 5.0 0.0))
       ;;       (size (vec2 1.0 1.0))
@@ -140,6 +156,7 @@
       ;;              :rotation-center r-center))
 
       (render-grid2d)
+      (render-block *current-block*)
 
       ;; fps
       (let ((text (format nil "~4f" (average-fps)))
