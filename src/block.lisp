@@ -212,5 +212,7 @@ just because they are n dimensional and are immutable."
       (with :pieces (move-pieces (@ block :pieces) dist-vec))))
 
 (defun move-block-to-start2d (block)
-  (move-block block (vec2f (cfloat (* (truncate (/ (aref *grid-dim2d* 0) 2.0))))
-                           (cfloat (* (truncate (/ (aref *grid-dim2d* 1) 2.0)))))))
+  (move-block block (vec2f (* -1.0 (truncate
+                                    (/ (@ (@ block :size) 0) 2.0))
+                              +piece-diameter+)
+                           (* (truncate (/ (y-val *grid-dim2d*) 2.0)) +piece-diameter+))))

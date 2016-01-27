@@ -84,9 +84,10 @@
 (defun render-piece2d (piece)
   (let ((diameter (* 2.0 +piece-radius+))
         (center (@ piece :center)))
-    (cube-draw :position (vec3f (@ center 0) (@ center 1) 0.0)
+    (cube-draw :position (vec3f (@ center 0) (@ center 1) +piece-radius+)
                :color (@ piece :color)
-               :size (vec3f diameter diameter diameter))))
+               :size (vec3f diameter diameter diameter)
+               :draw-center (vec3f 0.0 0.0 0.5))))
 
 (defun render-piece (piece)
   (cond ((= (size (@ piece :center)) 2)
@@ -98,16 +99,17 @@
       (render-piece piece))))
 
 (defun render-grid2d ()
-  (let ((rows (aref *grid-dim2d* 0))
-        (cols (aref *grid-dim2d* 1))
+  (let ((cols (aref *grid-dim2d* 0))
+        (rows (aref *grid-dim2d* 1))
         (color (vec4f 0.5 0.5 0.5 0.5))
         (secondary-dim (/ +piece-radius+ 5.0))
         (piece-diameter (* +piece-radius+ 2.0)))
 
     ;; row
     (iter (for row from 0 to rows)
-      (rect-draw :position (vec3f 0.0
-                                  (cfloat (* row piece-diameter))
+      (rect-draw :position (vec3f +piece-radius+
+                                  (- (cfloat (* row piece-diameter))
+                                     +piece-radius+)
                                   0.0)
                  :size (vec2f (* piece-diameter cols)
                               secondary-dim)
@@ -116,8 +118,9 @@
 
     ;; col
     (iter (for col from 0 to cols)
-      (rect-draw :position (vec3f (cfloat (* col piece-diameter))
-                                  0.0
+      (rect-draw :position (vec3f (+ (cfloat (* col piece-diameter))
+                                     +piece-radius+)
+                                  (- +piece-radius+)
                                   0.0)
                  :size (vec2f secondary-dim
                               (* piece-diameter rows))

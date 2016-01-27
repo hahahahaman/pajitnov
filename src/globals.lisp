@@ -8,8 +8,9 @@
 ;; (defglobal *height* 800)
 ;; (defglobal *blocks* (empty-seq))
 (defglobal *grid* (empty-seq))
-(defglobal *grid-dim2d* (vec2i 10 20))
+(defglobal *grid-dim2d* (vec2i 20 10))
 
 (defglobal *current-block* nil)
 
 (defconstant +piece-radius+ 5.0)
+(defconstant +piece-diameter+ (* +piece-radius+ 2.0))
