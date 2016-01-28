@@ -27,8 +27,7 @@
 
     (load-font "sans50" "./data/fonts/DejaVuSans.ttf" 50)
 
-    (setf *current-block* (move-block-to-start2d
-                           (make-block 4 6 0.3 2)))
+    (setf *current-block* (starting-block2d))
     (print *current-block*)
 
     (let ((view (get-view-matrix *camera*))
@@ -52,6 +51,39 @@
       (gl:use-program (id text-program))
       (gl:uniform-matrix-4fv (get-uniform text-program "projection") proj nil))))
 
+(defun handle-input2d ()
+  (let (
+
+        (up-p (or (key-action-p :w :press) (key-action-p :up :press)))
+        (down-p (or (key-action-p :s :press) (key-action-p :down :press)))
+        (left-p (or (key-action-p :a :press) (key-action-p :left :press)))
+        (right-p (or (key-action-p :d :press) (key-action-p :right :press)))
+        (reset-p (key-action-p :n :press))
+        ;; (up-p (or (key-pressed-p :w) (key-pressed-p :up)))
+        ;; (down-p (or (key-pressed-p :s) (key-pressed-p :down)))
+        ;; (left-p (or (key-pressed-p :a) (key-pressed-p :left)))
+        ;; (right-p (or (key-pressed-p :d) (key-pressed-p :right)))
+        )
+    (when reset-p
+      (add-event :code
+                 (setf *current-block*
+                       (starting-block2d))))
+    (when up-p
+      (add-event :code
+                 (setf *current-block*
+                       (move-block *current-block*
+                                   (vec2f 0.0 (cfloat +piece-diameter+))))))
+    (when down-p
+      (add-event :code
+                 (setf *current-block*
+                       (move-block *current-block*
+                                   (vec2f 0.0 (cfloat (- +piece-diameter+)))))))
+    (when right-p
+      (add-event :code
+                 (setf *current-block*
+                       (move-block *current-block*
+                                   (vec2f (cfloat +piece-diameter+) 0.0)))))))
+
 (defun handle-input ()
   (when (key-action-p :escape :press)
     (close-window))
@@ -60,24 +92,27 @@
              (key-action-p :r :press))
     (set-restart-window)
     (close-window))
-  (when (or (key-pressed-p :left-control)
-            (key-pressed-p :right-control))
-    (when (key-pressed-p :a)
-      (add-event :code (process-direction-movement *camera* +left+ *dt*)))
-    (when (key-pressed-p :s)
-      (add-event :code (process-direction-movement *camera* +backward+ *dt*)))
-    (when (key-pressed-p :d)
-      (add-event :code (process-direction-movement *camera* +right+ *dt*)))
-    (when (key-pressed-p :w)
-      (add-event :code (process-direction-movement *camera* +forward+ *dt*)))
-    (when (key-pressed-p :q)
-      (add-event :code (process-rotation-movement *camera* -5.0 0.0)))
-    (when (key-pressed-p :e)
-      (add-event :code (process-rotation-movement *camera* 5.0 0.0)))
-    (when (key-pressed-p :f)
-      (add-event :code (process-rotation-movement *camera* 0.0 5.0)))
-    (when (key-pressed-p :v)
-      (add-event :code (process-rotation-movement *camera* 0.0 -5.0))))
+  (when (equalp *state* +game2d+)
+    (let ((angle-change 1.0))
+      (when (or (key-pressed-p :left-control)
+                (key-pressed-p :right-control))
+        (when (key-pressed-p :a)
+          (add-event :code (process-direction-movement *camera* +left+ *dt*)))
+        (when (key-pressed-p :s)
+          (add-event :code (process-direction-movement *camera* +backward+ *dt*)))
+        (when (key-pressed-p :d)
+          (add-event :code (process-direction-movement *camera* +right+ *dt*)))
+        (when (key-pressed-p :w)
+          (add-event :code (process-direction-movement *camera* +forward+ *dt*)))
+        (when (key-pressed-p :q)
+          (add-event :code (process-rotation-movement *camera* (- angle-change) 0.0)))
+        (when (key-pressed-p :e)
+          (add-event :code (process-rotation-movement *camera* angle-change 0.0)))
+        (when (key-pressed-p :f)
+          (add-event :code (process-rotation-movement *camera* 0.0 angle-change)))
+        (when (key-pressed-p :v)
+          (add-event :code (process-rotation-movement *camera* 0.0 (- angle-change))))))
+    (handle-input2d))
   (when *scroll-callback-p*
     (add-event :code (process-scroll-movement *camera* (cfloat *scroll-y*)))))
 

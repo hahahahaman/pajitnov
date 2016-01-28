@@ -211,8 +211,55 @@ just because they are n dimensional and are immutable."
       (with :center (move-position (@ block :center) dist-vec))
       (with :pieces (move-pieces (@ block :pieces) dist-vec))))
 
+;; FIXME : move block more right if possible
 (defun move-block-to-start2d (block)
-  (move-block block (vec2f (* -1.0 (truncate
-                                    (/ (@ (@ block :size) 0) 2.0))
-                              +piece-diameter+)
-                           (* (truncate (/ (y-val *grid-dim2d*) 2.0)) +piece-diameter+))))
+  (let ((rightmost 0.0))
+    (do-seq (piece (@ block :pieces))
+      (let ((x (@ (@ piece :center) 0)))
+        (when (< rightmost x)
+          (setf rightmost x))))
+    (move-block block (vec2f
+                       (- rightmost)
+                       ;; (* -1.0 (truncate
+                       ;;          (/ (@ (@ block :size) 0) 2.0))
+                       ;;    +piece-diameter+)
+                       (* (truncate (/ (y-val *grid-dim2d*) 2.0)) +piece-diameter+)))))
+
+(defun starting-block2d ()
+  (move-block-to-start2d (make-block 4 8 0.3 2)))
+
+(defmacro defrotation (func-name (axis1 axis2))
+  "Defines a new function which does a 90 degree rotation on
+the plane formed by the integer axes AXIS1 and AXIS2."
+  `(defun ,func-name (pos center)
+     (let ((pa1 (@ pos ,axis1))
+           (pa2 (@ pos ,axis2))
+           (ca1 (@ center ,axis1))
+           (ca2 (@ center ,axis2)))
+       ;; move pos to 0,0 center
+       (decf pa1 ca1)
+       (decf pa2 ca2)
+
+       ;; counter clockwise rotation
+       ;; x' = -y
+       ;; y' = x
+
+       ;; number swap
+       ;; x' = x - y
+       ;; y' = x' + y
+       ;; x'' = x' - y'
+       (decf pa1 pa2)
+       (setf pa2 (+ pa1 pa2))
+       (decf pa1 pa2)
+
+       ;; move back to real center
+       (incf pa1 ca1)
+       (incf pa2 ca2)
+       (-> pos
+           (with ,axis1 pa1)
+           (with ,axis2 pa2)))))
+
+(defrotation rotate-position-xy (0 1))
+(defrotation rotate-position-yx (1 0))
+(defrotation rotate-position-xz (0 2))
+(defrotation rotate-position-yz (1 2))
