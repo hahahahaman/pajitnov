@@ -19,6 +19,7 @@
           *camera* (make-instance 'camera :position (vec3f 90.0 50.0 220.0)
                                           :yaw -90.0
                                           :pitch 0.0
+                                          :zoom 45.0
                                           :movement-speed 10.0))
 
     (load-program "cube" cube-program)
@@ -137,13 +138,14 @@
       (render-piece piece))
     (let ((indicator-dim (/ +piece-radius+ 2.0)))
       (rect-draw :position (vec3f (@ center 0) (@ center 1) +piece-diameter+)
-                 :size (vec3f indicator-dim indicator-dim indicator-dim)
-                 :color (vec4f 0.5 0.6 0.8 0.8)))))
+                 :size (vec3f indicator-dim indicator-dim +piece-diameter+)
+                 :color (vec4f 1.0 1.0 1.0 0.8)
+                 :draw-center (vec3f 0.0 0.0 0.0)))))
 
 (defun render-grid2d ()
   (let ((cols (aref *grid-dim2d* 0))
         (rows (aref *grid-dim2d* 1))
-        (color (vec4f 0.5 0.5 0.5 0.5))
+        (color (vec4f 0.5 0.5 0.5 0.4))
         (secondary-dim (/ +piece-radius+ 5.0))
         (piece-diameter (* +piece-radius+ 2.0)))
 
@@ -156,7 +158,17 @@
                  :size (vec2f (* piece-diameter cols)
                               secondary-dim)
                  :color color
-                 :draw-center (vec3f -0.5 0.0 0.0)))
+                 :draw-center (vec3f -0.5 0.0 0.0))
+
+      ;; (rect-draw :position (vec3f +piece-radius+
+      ;;                             (- (cfloat (* row piece-diameter))
+      ;;                                +piece-radius+)
+      ;;                             +piece-diameter+)
+      ;;            :size (vec2f (* piece-diameter cols)
+      ;;                         secondary-dim)
+      ;;            :color color
+      ;;            :draw-center (vec3f -0.5 0.0 0.0))
+      )
 
     ;; col
     (iter (for col from 0 to cols)
@@ -167,7 +179,17 @@
                  :size (vec2f secondary-dim
                               (* piece-diameter rows))
                  :color color
-                 :draw-center (vec3f 0.0 -0.5 0.0)))))
+                 :draw-center (vec3f 0.0 -0.5 0.0))
+
+      ;; (rect-draw :position (vec3f (+ (cfloat (* col piece-diameter))
+      ;;                                +piece-radius+)
+      ;;                             (- +piece-radius+)
+      ;;                             +piece-diameter+)
+      ;;            :size (vec2f secondary-dim
+      ;;                         (* piece-diameter rows))
+      ;;            :color color
+      ;;            :draw-center (vec3f 0.0 -0.5 0.0))
+      )))
 
 (let ((render-timer (make-timer :end (/ 1.0 60.0))))
   (defun render ()

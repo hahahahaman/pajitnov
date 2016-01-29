@@ -224,18 +224,14 @@ just because they are n dimensional and are immutable."
       (with :center (move-position (@ block :center) dist-vec))
       (with :pieces (move-pieces (@ block :pieces) dist-vec))))
 
-;; FIXME : move block more right if possible
 (defun move-block-to-start2d (block)
-  (let ((rightmost 0.0))
+  (let ((rightmost -100000.0))
     (do-seq (piece (@ block :pieces))
       (let ((x (@ (@ piece :center) 0)))
         (when (< rightmost x)
           (setf rightmost x))))
     (move-block block (vec2f
                        (- rightmost)
-                       ;; (* -1.0 (truncate
-                       ;;          (/ (@ (@ block :size) 0) 2.0))
-                       ;;    +piece-diameter+)
                        (* (truncate (/ (y-val *grid-dim2d*) 2.0)) +piece-diameter+)))))
 
 (defun starting-block2d ()
