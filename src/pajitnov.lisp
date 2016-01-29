@@ -52,9 +52,7 @@
       (gl:uniform-matrix-4fv (get-uniform text-program "projection") proj nil))))
 
 (defun handle-input2d ()
-  (let (
-
-        (up-p (or (key-action-p :w :press) (key-action-p :up :press)))
+  (let ((up-p (or (key-action-p :w :press) (key-action-p :up :press)))
         (down-p (or (key-action-p :s :press) (key-action-p :down :press)))
         (left-p (or (key-action-p :a :press) (key-action-p :left :press)))
         (right-p (or (key-action-p :d :press) (key-action-p :right :press)))
@@ -82,7 +80,11 @@
       (add-event :code
                  (setf *current-block*
                        (move-block *current-block*
-                                   (vec2f (cfloat +piece-diameter+) 0.0)))))))
+                                   (vec2f (cfloat +piece-diameter+) 0.0)))))
+    (when left-p
+      (add-event :code
+                 (setf *current-block*
+                       (rotate-block-xy *current-block*))))))
 
 (defun handle-input ()
   (when (key-action-p :escape :press)
@@ -129,9 +131,14 @@
          (render-piece2d piece))))
 
 (defun render-block (block)
-  (let ((pieces (@ block :pieces)))
+  (let ((pieces (@ block :pieces))
+        (center (@ block :center)))
     (do-seq (piece pieces)
-      (render-piece piece))))
+      (render-piece piece))
+    (let ((indicator-dim (/ +piece-radius+ 2.0)))
+      (rect-draw :position (vec3f (@ center 0) (@ center 1) +piece-diameter+)
+                 :size (vec3f indicator-dim indicator-dim indicator-dim)
+                 :color (vec4f 0.5 0.6 0.8 0.8)))))
 
 (defun render-grid2d ()
   (let ((cols (aref *grid-dim2d* 0))

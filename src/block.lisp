@@ -1,5 +1,18 @@
 (in-package :pajitnov)
 
+#|
+block:
+[MAP
+(:size [SEQ])
+(:pieces [SEQ [MAP]])
+(:center [SEQ])]
+
+piece:
+[MAP
+(:center [SEQ])
+(:color [VEC4f])]
+|#
+
 (defun valid-position (array position max-pieces)
   "=> BOOLEAN
 Checks if POSITION is a valid point in ARRAY."
@@ -263,3 +276,14 @@ the plane formed by the integer axes AXIS1 and AXIS2."
 (defrotation rotate-position-yx (1 0))
 (defrotation rotate-position-xz (0 2))
 (defrotation rotate-position-yz (1 2))
+
+(defun rotate-piece-xy (piece center)
+  (with piece :center (rotate-position-xy (@ piece :center) center)))
+
+(defun rotate-block-xy (block)
+  (let ((new-pieces (empty-seq))
+        (block-center (@ block :center)))
+    (do-seq (piece (@ block :pieces))
+      (setf new-pieces (with-last new-pieces
+                         (rotate-piece-xy piece block-center))))
+    (with block :pieces new-pieces)))
