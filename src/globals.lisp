@@ -13,6 +13,12 @@
 (defglobal *state* +game2d+)
 
 (defglobal *current-block* nil)
+(defglobal *old-pieces* (empty-seq))
+(defglobal *old-piece-array* nil)
+
+(defglobal *score* 0)
+(defglobal *block-move-timer* nil)
+(defglobal *block-slide-timer* nil)
 
 (defconstant +piece-radius+ 5.0)
 (defconstant +piece-diameter+ (* +piece-radius+ 2.0))

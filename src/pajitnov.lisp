@@ -20,7 +20,9 @@
                                           :yaw -90.0
                                           :pitch 0.0
                                           :zoom 45.0
-                                          :movement-speed 10.0))
+                                          :movement-speed 10.0)
+          *block-move-timer* (make-timer :end 1.0)
+          *block-slide-timer* (make-timer :end 1.0))
 
     (load-program "cube" cube-program)
     (load-program "text" text-program)
@@ -63,29 +65,29 @@
         ;; (left-p (or (key-pressed-p :a) (key-pressed-p :left)))
         ;; (right-p (or (key-pressed-p :d) (key-pressed-p :right)))
         )
-    (when reset-p
-      (add-event :code
-                 (setf *current-block*
-                       (starting-block2d))))
-    (when up-p
-      (add-event :code
-                 (setf *current-block*
-                       (move-block *current-block*
-                                   (vec2f 0.0 (cfloat +piece-diameter+))))))
-    (when down-p
-      (add-event :code
-                 (setf *current-block*
-                       (move-block *current-block*
-                                   (vec2f 0.0 (cfloat (- +piece-diameter+)))))))
-    (when right-p
-      (add-event :code
-                 (setf *current-block*
-                       (move-block *current-block*
-                                   (vec2f (cfloat +piece-diameter+) 0.0)))))
-    (when left-p
-      (add-event :code
-                 (setf *current-block*
-                       (rotate-block-xy *current-block*))))))
+    (when (not (or (key-pressed-p :left-control)
+                   (key-pressed-p :right-control)))
+
+      (when reset-p
+        (add-event :code
+                   (setf *current-block*
+                         (starting-block2d))))
+      (when up-p
+        (add-event :code
+                   (setf *current-block*
+                         (block-add-action *current-block* :up))))
+      (when down-p
+        (add-event :code
+                   (setf *current-block*
+                         (block-add-action *current-block* :down))))
+      (when right-p
+        (add-event :code
+                   (setf *current-block*
+                         (block-add-action *current-block* :right))))
+      (when left-p
+        (add-event :code
+                   (setf *current-block*
+                         (block-add-action *current-block* :rotate-xy)))))))
 
 (defun handle-input ()
   (when (key-action-p :escape :press)
@@ -120,12 +122,16 @@
     (add-event :code (process-scroll-movement *camera* (cfloat *scroll-y*)))))
 
 (defun render-piece2d (piece)
-  (let ((diameter (* 2.0 +piece-radius+))
-        (center (@ piece :center)))
-    (cube-draw :position (vec3f (@ center 0) (@ center 1) +piece-radius+)
+  (let ((center (@ piece :center)))
+    ;; (cube-draw :position (vec3f (@ center 0) (@ center 1) +piece-radius+)
+    ;;            :color (@ piece :color)
+    ;;            :size (vec3f +piece-diameter+ +piece-diameter+ +piece-diameter+)
+    ;;            :draw-center (vec3f 0.0 0.0 0.5))
+    (rect-draw :position (vec3f (@ center 0) (@ center 1) 0.0)
                :color (@ piece :color)
-               :size (vec3f diameter diameter diameter)
-               :draw-center (vec3f 0.0 0.0 0.5))))
+               :size (vec2f +piece-diameter+ +piece-diameter+)
+               :draw-center (vec3f 0.0 0.0 0.5))
+    ))
 
 (defun render-piece (piece)
   (cond ((= (size (@ piece :center)) 2)
@@ -137,10 +143,14 @@
     (do-seq (piece pieces)
       (render-piece piece))
     (let ((indicator-dim (/ +piece-radius+ 2.0)))
-      (rect-draw :position (vec3f (@ center 0) (@ center 1) +piece-diameter+)
+      (rect-draw :position (vec3f (@ center 0) (@ center 1) 1.1)
                  :size (vec3f indicator-dim indicator-dim +piece-diameter+)
                  :color (vec4f 1.0 1.0 1.0 0.8)
                  :draw-center (vec3f 0.0 0.0 0.0)))))
+
+(defun render-old-pieces ()
+  (do-seq (piece *old-pieces*)
+    (render-piece piece)))
 
 (defun render-grid2d ()
   (let ((cols (aref *grid-dim2d* 0))
@@ -158,17 +168,7 @@
                  :size (vec2f (* piece-diameter cols)
                               secondary-dim)
                  :color color
-                 :draw-center (vec3f -0.5 0.0 0.0))
-
-      ;; (rect-draw :position (vec3f +piece-radius+
-      ;;                             (- (cfloat (* row piece-diameter))
-      ;;                                +piece-radius+)
-      ;;                             +piece-diameter+)
-      ;;            :size (vec2f (* piece-diameter cols)
-      ;;                         secondary-dim)
-      ;;            :color color
-      ;;            :draw-center (vec3f -0.5 0.0 0.0))
-      )
+                 :draw-center (vec3f -0.5 0.0 0.0)))
 
     ;; col
     (iter (for col from 0 to cols)
@@ -179,17 +179,7 @@
                  :size (vec2f secondary-dim
                               (* piece-diameter rows))
                  :color color
-                 :draw-center (vec3f 0.0 -0.5 0.0))
-
-      ;; (rect-draw :position (vec3f (+ (cfloat (* col piece-diameter))
-      ;;                                +piece-radius+)
-      ;;                             (- +piece-radius+)
-      ;;                             +piece-diameter+)
-      ;;            :size (vec2f secondary-dim
-      ;;                         (* piece-diameter rows))
-      ;;            :color color
-      ;;            :draw-center (vec3f 0.0 -0.5 0.0))
-      )))
+                 :draw-center (vec3f 0.0 -0.5 0.0)))))
 
 (let ((render-timer (make-timer :end (/ 1.0 60.0))))
   (defun render ()
@@ -201,29 +191,9 @@
       (gl:clear-color 0.0 0.0 0.0 1.0)
       (gl:clear :color-buffer-bit :depth-buffer-bit)
 
-      ;; (cube-draw :draw-mode :triangles)
-      ;; (let ((pos (vec3 5.0 5.0 0.0))
-      ;;       (size (vec2 1.0 1.0))
-      ;;       (rotate (glfw:get-time))
-      ;;       (d-center (vec3 0.0 0.0 0.0))
-      ;;       (r-center (vec3 -0.5 0.5 0.0)))
-      ;;   (rect-draw :position pos
-      ;;              :size size
-      ;;              :color (vec4 1.0 0.0 0.0 1.0)
-      ;;              :rotate rotate
-      ;;              :draw-mode :line-strip
-      ;;              :draw-center d-center
-      ;;              :rotation-center r-center)
-      ;;   (rect-draw :position pos
-      ;;              :size size
-      ;;              :color (vec4 0.0 1.0 1.0 1.0)
-      ;;              :rotate 0.0
-      ;;              :draw-mode :points
-      ;;              :draw-center d-center
-      ;;              :rotation-center r-center))
-
       (render-grid2d)
       (render-block *current-block*)
+      (render-old-pieces)
 
       ;; fps
       (let ((text (format nil "~4f" (average-fps)))
@@ -234,6 +204,41 @@
                    :position (vec3f (cfloat *width*) 0.0 0.0)
                    :scale scale
                    :draw-center (vec3f 0.5 -0.5 0.0))))))
+
+(flet ((2d-valid-move-p (block)
+         (valid-move-p
+          block
+          (1- (* (y-val *grid-dim2d*) +piece-diameter+))
+          0.0
+          (* (x-val *grid-dim2d*) +piece-diameter+))))
+  (defun update-game2d ()
+    (timer-update *block-move-timer*)
+    (when (timer-ended-p *block-move-timer*)
+      ;; move right
+      (add-event :code
+                 (progn
+                   (setf *current-block*
+                         (block-add-action *current-block* :right))
+                   (timer-reset *block-move-timer*))))
+
+    (add-event :code
+               (progn
+                 (do-seq (action (@ *current-block* :actions))
+                   (let ((move (cond ((eql action :right)
+                                      (move-block *current-block*
+                                                  (vec2f 10.0 0.0)))
+                                     ((eql action :up)
+                                      (move-block *current-block*
+                                                  (vec2f 0.0 10.0)))
+                                     ((eql action :down)
+                                      (move-block *current-block*
+                                                  (vec2f 0.0 -10.0)))
+                                     ((eql action :rotate-xy)
+                                      (rotate-block-xy *current-block*))
+                                     (t *current-block*))))
+                     (when (2d-valid-move-p move)
+                       (setf *current-block* move))))
+                 (with! *current-block* :actions (empty-seq))))))
 
 (let ((update-timer (make-timer :end (/ 1.0 100.0))))
   (defun update ()
@@ -248,20 +253,16 @@
       ;;   (update-camera-vectors *camera*))
       (let ((cube-program (get-program "cube"))
             (rect-program (get-program "rect"))
-            (view (get-view-matrix *camera*))
-            ;; (proj (kit.math:perspective-matrix (kit.glm:deg-to-rad (zoom *camera*))
-            ;;                                    (cfloat (/ *width* *height*))
-            ;;                                    0.1 100.0))
-            )
+            (view (get-view-matrix *camera*)))
         ;; update camera movement by setting uniforms for the shaders
         (gl:use-program (id cube-program))
         (gl:uniform-matrix-4fv (get-uniform cube-program "view") view nil)
-        ;; (gl:uniform-matrix-4fv (get-uniform cube-program "projection") proj nil)
 
         (gl:use-program (id rect-program))
         (gl:uniform-matrix-4fv (get-uniform rect-program "view") view nil)
-        ;; (gl:uniform-matrix-4fv (get-uniform rect-program "projection") proj nil)
-        ))))
+        )
+      (cond ((equalp *state* +game2d+)
+             (update-game2d))))))
 
 (defun cleanup ()
   t)

@@ -5,7 +5,8 @@ block:
 [MAP
 (:size [SEQ])
 (:pieces [SEQ [MAP]])
-(:center [SEQ])]
+(:center [SEQ])
+(:actions [SEQ])]
 
 piece:
 [MAP
@@ -102,7 +103,7 @@ N-DIMENSIONS is the number of dimensions of the block."
          (next-valid-positions nil)
 
          ;; the block itself
-         (block (empty-map)))
+         (block (map (:actions (empty-seq)))))
 
     (flet ((add-piece ()
 
@@ -230,6 +231,9 @@ just because they are n dimensional and are immutable."
       (let ((x (@ (@ piece :center) 0)))
         (when (< rightmost x)
           (setf rightmost x))))
+
+    ;; TODO : fix so that depending on height the middle piece
+    ;; will be in the middle of grid
     (move-block block (vec2f
                        (- rightmost)
                        (* (truncate (/ (y-val *grid-dim2d*) 2.0)) +piece-diameter+)))))
@@ -283,3 +287,32 @@ the plane formed by the integer axes AXIS1 and AXIS2."
       (setf new-pieces (with-last new-pieces
                          (rotate-piece-xy piece block-center))))
     (with block :pieces new-pieces)))
+
+(defun handle-bottom-collision (block))
+
+(defun valid-move-p (block top bot right)
+  (let ((result t))
+    (do-seq (piece (@ block :pieces))
+      (let* ((center (@ piece :center))
+             (x (@ center 0))
+             (y (@ center 1)))
+        ;; check top, bot, and right wall
+        (when (or (> y top) (< y bot)
+                  (> x right))
+          (setf result nil)
+          (return))
+
+        ;; check for old pieces
+        (do-seq (old *old-pieces*)
+          (let* ((old-center (@ old :center))
+                 (dist (gmap:gmap :sum (lambda (a b)
+                                         (square (- a b)))
+                                  (:seq center)
+                                  (:seq old-center))))
+            (when (< dist (square +piece-diameter+))
+              (setf result nil)
+              (return))))))
+    result))
+
+(defun block-add-action (block action)
+  (with block :actions (with-last (@ block :actions) action)))
