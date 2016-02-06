@@ -1,6 +1,5 @@
 (in-package :pajitnov)
 
-
 ;; dreams die.
 ;; (defun get-symbol-values (symbols)
 ;;   (let ((li `(list)))

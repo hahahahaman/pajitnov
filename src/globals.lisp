@@ -14,7 +14,7 @@
 
 (defglobal *current-block* nil)
 (defglobal *old-pieces* (empty-seq))
-(defglobal *old-piece-array* nil)
+(defglobal *old-piece-array* (empty-seq))
 
 (defglobal *score* 0)
 (defglobal *block-move-timer* nil)
