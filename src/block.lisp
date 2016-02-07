@@ -187,9 +187,9 @@ N-DIMENSIONS is the number of dimensions of the block."
                                               (lambda (pos center)
                                                 (* (- pos center) +piece-radius+ 2.0))
                                               (:list vals) (:list center-position)))
-                                    (:color (vec4f (random-in-range 0.0 1.0)
-                                                   (random-in-range 0.0 1.0)
-                                                   (random-in-range 0.0 1.0)
+                                    (:color (vec4f (random-in-range 0.2 1.0)
+                                                   (random-in-range 0.2 1.0)
+                                                   (random-in-range 0.2 1.0)
                                                    1.0)))))))
        range-list)
       (setf block
@@ -288,31 +288,31 @@ the plane formed by the integer axes AXIS1 and AXIS2."
                          (rotate-piece-xy piece block-center))))
     (with block :pieces new-pieces)))
 
-(defun handle-bottom-collision (block))
-
 (defun valid-move-p (block top bot right)
   (let ((result t))
     (do-seq (piece (@ block :pieces))
       (let* ((center (@ piece :center))
              (x (@ center 0))
-             (y (@ center 1)))
+             (y (@ center 1))
+             (col (1- (truncate (/ x +piece-diameter+)))))
         ;; check top, bot, and right wall
-        (when (or (> y top) (< y bot)
+        (when (or (>= y top) (< y bot)
                   (> x right))
           (setf result nil)
           (return))
 
         ;; check for old pieces
-        ;; (do-seq (old *old-pieces*)
-        ;;   (let* ((old-center (@ old :center))
-        ;;          (dist (gmap:gmap :sum (lambda (a b)
-        ;;                                  (square (- a b)))
-        ;;                           (:seq center)
-        ;;                           (:seq old-center))))
-        ;;     (when (< dist (square +piece-diameter+))
-        ;;       (setf result nil)
-        ;;       (return))))
-        ))
+        (when (<= 0 col)
+          (do-seq (old (@ *old-piece-array* col))
+            (let* ((old-center (@ old :center))
+                   (dist (gmap:gmap :sum (lambda (x y) (square (- x y)))
+                                    (:seq center) (:seq old-center))))
+              (when (< dist (square +piece-diameter+))
+                (setf result nil)
+                (return)))))
+
+        (unless result
+          (return))))
     result))
 
 (defun block-add-action (block action)

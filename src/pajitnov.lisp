@@ -20,21 +20,13 @@
                                           :yaw -90.0
                                           :pitch 0.0
                                           :zoom 45.0
-                                          :movement-speed 10.0)
-          *block-move-timer* (make-timer :end 0.5)
-          *block-slide-timer* (make-timer :end 0.5))
+                                          :movement-speed 10.0))
 
     (load-program "cube" cube-program)
     (load-program "text" text-program)
     (load-program "rect" rect-program)
 
     (load-font "sans50" "./data/fonts/DejaVuSans.ttf" 50)
-
-    (iter (for i from 0 below (x-val *grid-dim2d*))
-      (setf *old-piece-array* (with-last *old-piece-array* (empty-seq))))
-
-    (setf *current-block* (starting-block2d))
-    (print *current-block*)
 
     (let ((view (get-view-matrix *camera*))
           (proj (kit.math:perspective-matrix (kit.glm:deg-to-rad (zoom *camera*))
@@ -56,7 +48,19 @@
       ;;text shader matrices
       (gl:use-program (id text-program))
       (gl:uniform-matrix-4fv (get-uniform text-program "projection") proj nil))
+    (initialize-game2d)
+    (update-dt)
     (update-dt)))
+
+(defun initialize-game2d ()
+  (setf *block-move-timer* (make-timer :end 0.5)
+        *block-slide-timer* (make-timer :end 1.0)
+        *old-piece-array* (empty-seq))
+  (iter (for i from 0 below (x-val *grid-dim2d*))
+    (setf *old-piece-array* (with-last *old-piece-array* (empty-seq))))
+
+  (setf *current-block* (starting-block2d))
+  (print *current-block*))
 
 (defun handle-input2d ()
   (let ((up-p (or (key-action-p :w :press) (key-action-p :up :press)))
@@ -214,7 +218,7 @@
 (flet ((2d-valid-move-p (block)
          (valid-move-p
           block
-          (1- (* (y-val *grid-dim2d*) +piece-diameter+))
+          (* (y-val *grid-dim2d*) +piece-diameter+)
           0.0
           (* (x-val *grid-dim2d*) +piece-diameter+))))
   (defun update-game2d ()
@@ -240,50 +244,64 @@
            ;; add block pieces to old pieces array
 
            ;; (print "new block")
-           (do-seq (piece (@ *current-block* :pieces))
-             (let* ((block-ctr (@ *current-block* :center))
-                    (piece-ctr (@ piece :center))
-                    (line nil)
-                    (index nil))
-               ;; piece-ctr (gmap:gmap :seq (lambda (x y) (+ x y))
-               ;;                      (:seq piece-ctr) (:seq block-ctr))
-               (setf index (1- (truncate (/ (@ piece-ctr 0) +piece-diameter+)))
-                     line (@ *old-piece-array* index))
-               ;; (print index)
-               ;; (print piece)
-               (when (< (@ piece-ctr 0) 0)
-                 (print piece)
-                 (print *current-block*))
-               (push-last line (with piece :center piece-ctr))
-               (includef *old-piece-array* index line)))
 
-           ;; change focus block
-           (setf *current-block* (starting-block2d))
+           (block checks
 
-           ;; check line completion
-           ;; (let* ((height (y-val *grid-dim2d*))
-           ;;        (old-piece-array (remove-if (lambda (s) (= (size s) height))
-           ;;                                    *old-piece-array*)))
-           ;;   (do-seq (line old-piece-array)
-           ;;     (when (not (empty? line))
-           ;;       (do-seq (piece line :index index)
-           ;;         (let* ((center (@ piece :center))
-           ;;                (new-x (+ (@ center 0) (* 10.0 (size line)))))
-           ;;           ;; replace center x with new-x
-           ;;           (includef center 0 new-x)
+             ;; check lose condition
+             (do-seq (piece (@ *current-block* :pieces))
+               (let ((index (1- (truncate
+                                 (/ (@ (@ piece :center) 0)
+                                    +piece-diameter+)))))
+                 (when (< index 0)
+                   (print "lose")
+                   (initialize-game2d)
+                   (return-from checks))))
 
-           ;;           ;; replace piece center with new center
-           ;;           (includef piece :center center)
+             (do-seq (piece (@ *current-block* :pieces))
+               (let* (
+                      ;;(block-ctr (@ *current-block* :center))
+                      (piece-ctr (@ piece :center))
+                      (line nil)
+                      (index nil))
+                 ;; piece-ctr (gmap:gmap :seq (lambda (x y) (+ x y))
+                 ;;                      (:seq piece-ctr) (:seq block-ctr))
+                 (setf index (1- (truncate (/ (@ piece-ctr 0) +piece-diameter+)))
+                       line (@ *old-piece-array* index))
+                 ;; (print index)
+                 ;; (print piece)
+                 (when (< (@ piece-ctr 0) 0)
+                   (print piece)
+                   (print *current-block*))
+                 (push-last line (with piece :center piece-ctr))
+                 (includef *old-piece-array* index line)))
 
-           ;;           ;; replace the piece at index of line with new piece
-           ;;           (includef line index piece)))))
-           ;;   (iter (for i from 0 below (- (x-val *grid-dim2d*)
-           ;;                                (size old-piece-array)))
-           ;;     (push-first old-piece-array (empty-seq)))
-           ;;   (setf *old-piece-array* old-piece-array))
+             ;; change focus block
+             (setf *current-block* (starting-block2d))
 
-           ;; check lose condition
-           ))))
+             ;; check line completion
+             (let* ((height (y-val *grid-dim2d*))
+                    (old-piece-array (remove-if (lambda (s) (= (size s) height))
+                                                *old-piece-array*))
+                    (size-diff (- (x-val *grid-dim2d*) (size old-piece-array))))
+               (when (> size-diff 0)
+                 (iter (for i from 0 below size-diff)
+                   (push-first old-piece-array (empty-seq)))
+
+                 (do-seq (line old-piece-array :index array-index)
+                   (when (not (empty? line))
+                     (do-seq (piece line :index piece-index)
+                       (let* ((center (@ piece :center))
+                              (new-x (* (1+ array-index) +piece-diameter+)))
+                         ;; replace center x with new-x
+                         (includef center 0 new-x)
+
+                         ;; replace piece center with new center
+                         (includef piece :center center)
+
+                         ;; replace the piece at index of line with new piece
+                         (includef line piece-index piece)))
+                     (includef old-piece-array array-index line)))
+                 (setf *old-piece-array* old-piece-array))))))))
 
     (add-event :code
                (progn
