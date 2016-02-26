@@ -205,7 +205,7 @@ N-DIMENSIONS is the number of dimensions of the block."
 Position is just fset:seq with numbers. Using fset:seq for positions
 just because they are n dimensional and are immutable."
   (iter (for d in-vector dist-vec) (for i from 0)
-    (with! position i (+ (@ position i) d)))
+    (includef position i (+ (@ position i) d)))
   position)
 
 (defun move-pieces (pieces dist-vec)

@@ -320,7 +320,7 @@
                                      (t *current-block*))))
                      (cond ((2d-valid-move-p move)
                             (setf *current-block* move)))))
-                 (with! *current-block* :actions (empty-seq))))))
+                 (includef *current-block* :actions (empty-seq))))))
 
 (let ((update-timer (make-timer :end (/ 1.0 100.0))))
   (defun update ()
