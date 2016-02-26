@@ -344,7 +344,7 @@
   t)
 
 (defmacro start-window ()
-  `(err:run "pajitnov"
+  `(err-run "pajitnov"
             :init-code (initialize)
             :input-code (handle-input)
             :render-code (render)
